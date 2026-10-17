@@ -1,50 +1,9 @@
 SENTINEL_AGENT_CONTEXT_Samvit.md
-SENTINEL_AGENT_CONTEXT_Krishna.md
-SENTINEL_AGENT_CONTEXT_Kailash.md
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-.venv/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Testing & Coverage
-.pytest_cache/
-.coverage
-htmlcov/
-junit*.xml
-report*.xml
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Environment variables & secrets
-.env
-.env.*
-!.env.example
 .pytest_cache/
 .coverage
 htmlcov/

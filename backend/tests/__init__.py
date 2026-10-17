@@ -1,3 +1,0 @@
-"""
-Sentinel backend test suite.
-"""

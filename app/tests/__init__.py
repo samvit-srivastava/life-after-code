@@ -1,3 +1,0 @@
-"""
-Target app test suite.
-"""
