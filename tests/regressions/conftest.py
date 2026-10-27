@@ -23,8 +23,24 @@ if str(APP_DIR) not in sys.path:
 
 @pytest.fixture
 def client():
-    from app.main import app
-    from fastapi.testclient import TestClient
+    saved = {}
+    for mod in list(sys.modules.keys()):
+        if mod == "app" or mod.startswith("app."):
+            saved[mod] = sys.modules.pop(mod)
 
-    with TestClient(app) as test_client:
-        yield test_client
+    if str(APP_DIR) in sys.path:
+        sys.path.remove(str(APP_DIR))
+    sys.path.insert(0, str(APP_DIR))
+
+    try:
+        from app.main import app
+        from fastapi.testclient import TestClient
+
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        for mod in list(sys.modules.keys()):
+            if mod == "app" or mod.startswith("app."):
+                sys.modules.pop(mod, None)
+        sys.modules.update(saved)
+
