@@ -16,6 +16,18 @@ Sentinel is a deployment-safety and production-recovery loop built on GitLab for
 
 The AI can never mark a repair as successful, bypass a gate, or make a failing pipeline look green.
 
+## Evidence: a real run on this project
+
+| Step | Link |
+|---|---|
+| A healthy release, with every job green | [pipeline 2992617972](https://gitlab.com/gitlab-ai-hackathon/transcend-october-2026/43057900/showcase/-/pipelines/2992617972) |
+| A faulty commit (`refactor(orders): simplify tier discount lookup`). The canary fails (16.67 % errors on the candidate, 0 % on stable), and the evidence is collected | [pipeline 2992630194](https://gitlab.com/gitlab-ai-hackathon/transcend-october-2026/43057900/showcase/-/pipelines/2992630194) |
+| The failed pipeline triggers the Duo flow, which opens the repair MR | [MR !1](https://gitlab.com/gitlab-ai-hackathon/transcend-october-2026/43057900/showcase/-/merge_requests/1) |
+| On the MR, the regression proof is **PROVEN** and the Integrity Gate gives **PASS** | [pipeline 2992662315](https://gitlab.com/gitlab-ai-hackathon/transcend-october-2026/43057900/showcase/-/pipelines/2992662315) |
+| After the merge, the merge commit passes the canary: 0.00 % errors on the candidate, against 16.67 % on the old broken release | [pipeline 2992674535](https://gitlab.com/gitlab-ai-hackathon/transcend-october-2026/43057900/showcase/-/pipelines/2992674535) |
+
+Full technical documentation, with diagrams: [docs/TECHNICAL.md](docs/TECHNICAL.md).
+
 ## Repository
 
 | Path | What it is | Owner |
@@ -27,6 +39,20 @@ The AI can never mark a repair as successful, bypass a gate, or make a failing p
 | `sentinel/scripts/` | Regression proof, Integrity Gate, gate reporting (Samvit); evaluator, rollback, evidence, auto-merge, emitter (Kailash) | Team |
 | `.gitlab-ci.yml`, `infra/` | Pipeline and Terraform for Cloud Run | Kailash |
 | `docs/contracts/` | OpenAPI, event, analysis and evidence-bundle schemas | Team |
+
+## Deploy modes
+
+The deploy mode is set by `SENTINEL_DEPLOY_MODE` in `.gitlab-ci.yml`.
+
+- **`local`** is the default, and the run above used it.
+  - The job `canary:local-evaluate` starts two copies of the app: the current commit as the candidate (port 8081), and the previous commit as the stable release (port 8080).
+  - The real evaluator sends real requests to both and compares their error rate and p95 latency.
+  - This mode needs no cloud account.
+- **`cloudrun`** deploys to Google Cloud Run.
+  - It builds the image and deploys it as a tagged Cloud Run revision.
+  - It shifts traffic 10 → 50 → 100 % and runs an evaluation at each step.
+  - If a step breaches its thresholds, it rolls back to the stable revision.
+  - It needs a GCP project and a service account (see `docs/deployment_guide.md` and `infra/`).
 
 ## Run it locally
 
@@ -74,6 +100,19 @@ ruff check .
   **Pipeline: Failed** trigger. Details in [docs/duo-flow.md](docs/duo-flow.md).
 
 Open items and team status are in [docs/REMAINING.md](docs/REMAINING.md).
+
+## Honest limits
+
+- The recorded run used the `local` deploy mode. The Cloud Run path is implemented and unit-tested with a fake `gcloud`, but it was not part of the recorded run.
+- Some panels on the System page (saboteur, candidates, shadow replay, carbon) show simulated, reference or derived values. Each panel is labelled with its data source, and no unmeasured value is presented as measured.
+- The Duo analysis is advisory. Only the gates count as proof.
+- In the recorded run no Sentinel backend was reachable from GitLab CI, so the jobs logged "could not emit" and carried on. Mission Control was shown against a local backend. MR !1 was merged by a person after both gates passed, because no `GITLAB_PROJECT_TOKEN` was set for auto-merge.
+
+## Team
+
+- Krishna Singh: backend, integration, GitLab CI and the Duo flow
+- Samvit Srivastava: frontend and AI
+- Kailash Ambadipudi: CI/CD and cloud
 
 ## Licence
 

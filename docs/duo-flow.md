@@ -35,5 +35,7 @@ What has been verified, and what has not:
 - **Verified locally:** both gates run against a seeded broken commit and a matching repair branch. A correct fix
   is PROVEN and passes the Integrity Gate. A repair that weakens `app/tests/test_orders.py` is blocked by
   RULE_01, RULE_04 and RULE_08. Signed verdicts reach the backend and appear in Mission Control.
-- **Not yet verified:** a real flow run on GitLab. The schema follows the published flow registry v1 docs, but tool
-  availability (for example `gitlab_api_get`) and credit cost per run still need checking on the hackathon namespace.
+- **Verified on GitLab:** a failed `main` pipeline (pipeline 2992630194, canary FAIL on the seeded discount fault)
+  triggered the flow, which opened MR !1 with the fix, a regression test and `analysis.json`. On the MR pipeline
+  (2992662315), the regression proof was PROVEN and the Integrity Gate passed. After the merge, the canary passed on the
+  merge commit (pipeline 2992674535).

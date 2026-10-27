@@ -1,0 +1,25 @@
+flowchart LR
+  dev([Developer push]) --> gl
+  subgraph gl[GitLab project]
+    direction TB
+    ci[CI pipeline<br/>lint · tests · security]
+    can[canary:local-evaluate<br/>candidate vs stable,<br/>real HTTP traffic]
+    rb[rollback --local<br/>stop candidate, probe stable]
+    ev[evidence:collect<br/>redacted bundle + SHA-256]
+    duo[GitLab Duo flow<br/>investigator → repairer]
+    mr[Repair MR<br/>fix + regression test + analysis.json]
+    gates[gate:regression-proof<br/>gate:integrity-gate]
+    ci --> can
+    can -- breach --> rb --> ev
+    ev -. pipeline failed trigger .-> duo --> mr --> gates
+    gates -- both pass --> merge[Merge by a person<br/>or auto-merge]
+    merge --> ci
+  end
+  can -- HMAC-signed events --> be
+  rb -- events --> be
+  ev -- events --> be
+  gates -- verdicts --> be
+  mr -. MR webhook .-> be
+  merge -. merge webhook .-> be
+  be[(Sentinel backend<br/>FastAPI · SQLite<br/>evidence-gated state machine)]
+  ui[Mission Control<br/>React · read-only] -- GET /api/v1/* --> be

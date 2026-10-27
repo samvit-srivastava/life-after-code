@@ -127,6 +127,7 @@ def execute_rollback(
     s3_snapshot_id: str | None = None,
     emit_to_backend: bool = True,
     dry_run: bool = False,
+    local: bool = False,
 ) -> dict[str, Any]:
     s3_snapshot_data = None
     if s3_snapshot_id:
@@ -175,13 +176,19 @@ def execute_rollback(
         except Exception as e:
             print(f"[!] Warning: could not emit rollback.started: {e}", file=sys.stderr)
 
-    # 2. Divert traffic in Cloud Run
-    traffic_res = execute_cloud_run_traffic_shift(
-        service_name=service_name,
-        target_revision=target_rev,
-        region=region,
-        dry_run=dry_run,
-    )
+    # 2. Divert traffic in Cloud Run. In local mode (SENTINEL_DEPLOY_MODE=local) there is no traffic
+    # split: the CI job has already stopped the candidate, so the stable app is the only one serving.
+    # The probe below still has to prove that stable app healthy before a rollback is reported.
+    if local:
+        print(f"[*] Local mode: candidate {candidate_rev} stopped by the CI job; {target_rev} keeps serving.")
+        traffic_res = {"success": True, "mode": "local", "revisions": {target_rev: 100}}
+    else:
+        traffic_res = execute_cloud_run_traffic_shift(
+            service_name=service_name,
+            target_revision=target_rev,
+            region=region,
+            dry_run=dry_run,
+        )
 
     # 3. Post-Rollback Authoritative Probe
     simulated = dry_run or os.environ.get("SENTINEL_SIMULATION_MODE") == "true"
@@ -237,6 +244,7 @@ def execute_rollback(
                     "post_rollback_probe_ok": probe_ok,
                     "target": "stable",
                     "s3_snapshot_id": s3_snapshot_id,
+                    "rollback_mode": traffic_res.get("mode"),
                 },
             )
         except Exception as e:
@@ -264,6 +272,7 @@ def main() -> None:
     parser.add_argument("--incident-id", help="Sentinel incident ID")
     parser.add_argument("--dry-run", action="store_true", help="Run in simulation mode without gcloud")
     parser.add_argument("--no-emit", action="store_true", help="Do not emit events to backend")
+    parser.add_argument("--local", action="store_true", help="Local deploy mode: the candidate was stopped by CI; only probe the stable app")
 
     args = parser.parse_args()
 
@@ -292,6 +301,7 @@ def main() -> None:
         incident_id=args.incident_id,
         emit_to_backend=not args.no_emit,
         dry_run=args.dry_run,
+        local=args.local,
     )
 
 

@@ -1,0 +1,32 @@
+sequenceDiagram
+  autonumber
+  actor Dev as Developer
+  participant CI as GitLab CI
+  participant BE as Sentinel backend
+  participant Duo as GitLab Duo flow
+  participant Gate as Gate jobs
+  Dev->>CI: push (faulty commit)
+  CI->>CI: start candidate + stable, send real requests
+  CI->>BE: evaluator.verdict FAIL (16.67% errors)
+  Note over BE: DETECTED
+  CI->>CI: stop candidate, probe stable 15x
+  CI->>BE: rollback.completed (probe ok)
+  Note over BE: ROLLED_BACK
+  CI->>BE: evidence.collected (SHA-256)
+  Note over BE: EVIDENCE_COLLECTED
+  CI-->>Duo: pipeline failed trigger
+  Duo->>Duo: read evidence bundle + source
+  Duo->>CI: branch duo/fix/inc-…, MR with fix + test
+  CI-->>BE: MR webhook
+  Note over BE: REPAIR_PROPOSED
+  CI->>Gate: MR pipeline
+  Gate->>Gate: test fails on broken, passes on fix
+  Gate->>Gate: Integrity Gate (no weakened tests)
+  Gate->>BE: regression_proof + integrity verdicts
+  Note over BE: VERIFYING
+  Dev->>CI: merge (gates green)
+  CI-->>BE: merge webhook
+  Note over BE: MERGED
+  CI->>BE: deploy.canary_started (merge commit)
+  CI->>BE: evaluator.verdict PASS at 100%
+  Note over BE: RECOVERED

@@ -42,8 +42,8 @@ TIER_RATES = {
 
 
 def calculate_discount(customer_tier: str, subtotal: float) -> float:
-    """Tier discount. Tier names arrive from many clients in any casing ("Premium",
-    "ENTERPRISE"), so they are normalised; unknown tiers get no discount."""
+    """Tier discount. Tier names arrive from many clients in any casing, so they
+    are normalised; unknown tiers get no discount."""
     rate = TIER_RATES.get(customer_tier.strip().lower(), 0.0)
     return round(subtotal * rate, 2)
 

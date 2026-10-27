@@ -288,6 +288,14 @@ export const DEMO_HOLDOUT: HoldoutGateView = {
   security_note: 'Holdout tests execute strictly within the isolated gate container. Raw test code and input corpora are never exposed to LLM context.',
 };
 
+/** The blocked path: one invariant breaks, so the counts must say so too. */
+export const DEMO_HOLDOUT_FAILED: HoldoutGateView = {
+  ...DEMO_HOLDOUT,
+  verdict: 'FAIL',
+  invariants_passed: 4,
+  invariants: DEMO_HOLDOUT.invariants.map((i) => (i.invariant_id === 'INV-02' ? { ...i, status: 'VIOLATED' } : i)),
+};
+
 export const DEMO_TRUST_SCORE_OK: TrustScoreView = {
   trust_score: 98,
   max_score: 100,
@@ -466,7 +474,7 @@ function history(t0: number) {
         }],
         trust_score: DEMO_TRUST_SCORE_FAIL,
         candidates: DEMO_CANDIDATES,
-        holdout_gate: { ...DEMO_HOLDOUT, verdict: 'FAIL' },
+        holdout_gate: DEMO_HOLDOUT_FAILED,
       },
       {
         id: 'att-002-2', attempt_no: 2, state: 'FAILED', flow_session_id: 'duo-session-0003',
@@ -578,7 +586,7 @@ export function demoSnapshot(t0: number, now: number, stepMs: number, fail: bool
       gate_results: gates,
       trust_score: failed ? DEMO_TRUST_SCORE_FAIL : DEMO_TRUST_SCORE_OK,
       candidates: DEMO_CANDIDATES,
-      holdout_gate: failed ? { ...DEMO_HOLDOUT, verdict: 'FAIL' } : DEMO_HOLDOUT,
+      holdout_gate: failed ? DEMO_HOLDOUT_FAILED : DEMO_HOLDOUT,
     }] : [],
   } : null;
 

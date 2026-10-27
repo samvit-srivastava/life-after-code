@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0.0",
+  "incident_id": "inc-1793072930",
+  "attempt_no": 1,
+  "outcome": "fix_proposed",
+  "facts": [
+    {
+      "fact": "The canary evaluator verdict was FAIL. The candidate had 4 errors in 24 requests (16.67% error rate). The stable baseline had 0 errors in 24 requests. The maximum permitted error rate is 2%.",
+      "evidence_ref": "evidence-bundle.json#evaluator_report.candidate, evidence-bundle.json#evaluator_report.stable, evidence-bundle.json#breached_thresholds[0]"
+    },
+    {
+      "fact": "Three thresholds were breached: absolute error rate, error-rate delta against stable, and error-budget burn rate (166.7x against a 14.4x limit).",
+      "evidence_ref": "evidence-bundle.json#breached_thresholds"
+    },
+    {
+      "fact": "Latency was not the problem. The candidate p95 was 7.22 ms against a 300 ms limit. The Mann-Whitney test was not significant (p=0.0949). The health endpoint was OK.",
+      "evidence_ref": "evidence-bundle.json#evaluator_report.composite_health.hypothesis_testing"
+    },
+    {
+      "fact": "The commit under investigation, 0a4020ec, changed calculate_discount in app/app/routes/orders.py. It removed the `customer_tier.strip().lower()` normalisation and the `.get(..., 0.0)` default for unknown tiers. It replaced them with a direct `TIER_RATES[customer_tier]` lookup. The removed docstring said tier names arrive from many clients in any casing and unknown tiers get no discount.",
+      "evidence_ref": "evidence-bundle.json#git_diff"
+    },
+    {
+      "fact": "At the broken commit, calculate_discount does `round(subtotal * TIER_RATES[customer_tier], 2)`. TIER_RATES has only the lowercase keys 'standard', 'premium' and 'enterprise'.",
+      "evidence_ref": "app/app/routes/orders.py#L37-L46"
+    },
+    {
+      "fact": "create_order passes the client-supplied order.customer_tier straight to calculate_discount. There is no validation, no normalisation and no exception handling around the call. The only declared constraint on customer_tier is a free-form string with default 'standard'.",
+      "evidence_ref": "app/app/routes/orders.py#L15-L20, app/app/routes/orders.py#L51-L53"
+    },
+    {
+      "fact": "The revision log records an HTTP 500 on a POST /api/v1/orders probe, with an error reported inside calculate_discount.",
+      "evidence_ref": "evidence-bundle.json#revision_logs[1], evidence-bundle.json#revision_logs[2], evidence-bundle.json#revision_logs[4]"
+    },
+    {
+      "fact": "The revision log is inconsistent with the code. It reports a ZeroDivisionError at orders.py line 34, and its timestamps are from 2026-10-19, while the evaluation ran on 2026-10-27. At the broken commit, line 34 is `ORDERS_DB = {}`. calculate_discount contains no division, and it spans lines 44-46.",
+      "evidence_ref": "evidence-bundle.json#revision_logs[2], evidence-bundle.json#revision_logs[3], app/app/routes/orders.py#L34"
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis": "The 4 failed canary requests used a customer_tier value that is not an exact lowercase key of TIER_RATES. Examples are 'Premium', 'ENTERPRISE', ' premium ' or an unknown tier. The direct lookup raised KeyError, which FastAPI returned as HTTP 500. The old code handled these inputs by normalising and defaulting to a 0.0 rate.",
+      "confidence": "high",
+      "rationale": "The diff removes exactly this handling, the docstring documents the mixed-casing input, and the failures are confined to the candidate while stable (old code) had 0 errors. The 4/24 error rate fits a minority of probe requests with non-canonical tiers. The Python code makes the KeyError path unambiguous for such input."
+    },
+    {
+      "fact": null,
+      "hypothesis": "The error text in revision_logs (ZeroDivisionError, line 34) does not describe the real failure mechanism. It may be stale, from a different revision, or a synthetic or templated entry. The real exception is probably KeyError.",
+      "confidence": "medium",
+      "rationale": "The log timestamps predate this run. The reported exception type and line number do not match the code at 0a4020ec."
+    },
+    {
+      "hypothesis": "No other part of the diff contributes to the regression.",
+      "confidence": "medium",
+      "rationale": "The diff touches only calculate_discount. The latency data shows no significant shift."
+    }
+  ],
+  "missing_evidence": [
+    "Actual request payloads (customer_tier values) for the 4 failing canary requests, with customer data redacted.",
+    "The real candidate application logs and stack traces from the canary evaluation run on 2026-10-27. The bundle's revision_logs are dated 2026-10-19 and name a ZeroDivisionError that the code cannot produce.",
+    "A per-request status-code breakdown from the evaluator, to confirm all 4 errors were HTTP 500 on POST /api/v1/orders.",
+    "Production traffic distribution of customer_tier values and casing.",
+    "Existing test coverage for calculate_discount with mixed-case or unknown tiers."
+  ],
+  "suspected_change": {
+    "commit_sha": "0a4020ec80736f70411b6f045340905d1f9d4c93",
+    "file_path": "app/app/routes/orders.py",
+    "line_range": "L44-L46 (diff hunk @@ -42,10 +42,8 @@)",
+    "reason": "The refactor replaced the normalising, defaulting lookup `TIER_RATES.get(customer_tier.strip().lower(), 0.0)` with `TIER_RATES[customer_tier]`. Any tier that is not an exact lowercase key now raises an unhandled KeyError, which becomes an HTTP 500."
+  },
+  "proposed_fix_summary": "Restore the previous behaviour in calculate_discount in app/app/routes/orders.py. Look up `TIER_RATES.get(customer_tier.strip().lower(), 0.0)`, so tier names are case-insensitive and whitespace-tolerant, and unknown tiers get a 0.0 discount. Keep the docstring that documents this contract. This is a minimal revert of the lookup logic and leaves the rest of the commit untouched. Add a regression test that calls calculate_discount with 'Premium', 'ENTERPRISE', ' premium ' and an unknown tier such as 'gold'. It should assert discounts of 10%, 20%, 10% and 0% respectively. On the broken commit these raise KeyError, which the test should catch and report as an AssertionError. On the fixed code they pass.",
+  "regression_test_strategy": {
+    "test_file": "tests/regressions/test_inc_1793072930.py",
+    "expected_failure_type": "AssertionError"
+  }
+}

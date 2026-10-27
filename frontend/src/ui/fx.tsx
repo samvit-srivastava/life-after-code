@@ -160,7 +160,9 @@ export function CountUp({ value }: { value: ReactNode }) {
     return () => { cancelAnimationFrame(raf); from.current = target; };
   }, [target]);
   if (!str || !m || !Number.isFinite(target)) return <>{value}</>;
-  return <>{str.slice(0, m.index)}{v.toFixed(dec)}{str.slice((m.index ?? 0) + m[0].length)}</>;
+  // While the tab is hidden no animation frame runs; show the target instead of a stale NaN.
+  const shown = Number.isFinite(v) ? v : target;
+  return <>{str.slice(0, m.index)}{shown.toFixed(dec)}{str.slice((m.index ?? 0) + m[0].length)}</>;
 }
 
 /* ---------------- Global effects: reveals, tilt + spotlight, magnetic buttons ---------------- */

@@ -33,7 +33,7 @@ export const STAGES: Record<RecoveryStage, { label: string; verb: string; author
   REPAIR_PROPOSED: { label: 'Propose', verb: 'Repair proposed', authority: 'GitLab Duo flow opens a merge request (advisory)', events: ['repair.proposed', 'flow.completed'], ai: true },
   VERIFYING: { label: 'Verify', verb: 'Gates verifying', authority: 'Regression-proof and Integrity Gate jobs', events: ['regression_proof.verdict', 'integrity_gate.verdict'] },
   MERGED: { label: 'Merge', verb: 'Merged', authority: 'GitLab, after every required job passes', events: ['merge.completed'] },
-  REDEPLOYING: { label: 'Redeploy', verb: 'Redeploying', authority: 'Canary deploy job', events: ['redeploy.completed'] },
+  REDEPLOYING: { label: 'Redeploy', verb: 'Redeploying', authority: 'Canary deploy job', events: ['deploy.canary_started', 'redeploy.completed'] },
   RECOVERED: { label: 'Recovered', verb: 'Recovery confirmed', authority: 'Post-redeploy health evaluator', events: ['recovery.verified'] },
 };
 

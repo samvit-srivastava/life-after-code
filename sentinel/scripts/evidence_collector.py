@@ -87,13 +87,9 @@ def collect_evaluator_report(evaluator_report_path: str | Path | None = None) ->
 
 def collect_revision_logs(service_name: str, revision: str, dry_run: bool = False) -> list[str]:
     if dry_run or os.environ.get("SENTINEL_SIMULATION_MODE") == "true":
-        return [
-            f"2026-10-19T01:00:01Z [INFO] Initializing service {service_name} revision {revision}",
-            "2026-10-19T01:00:03Z [INFO] Synthetic probe request POST /api/v1/orders received",
-            "2026-10-19T01:00:03Z [ERROR] ZeroDivisionError: integer division or modulo by zero in calculate_discount",
-            "2026-10-19T01:00:03Z [ERROR] Traceback (most recent call last): File 'app/app/routes/orders.py', line 34",
-            "2026-10-19T01:00:03Z [WARNING] HTTP 500 returned to client (probe failure)",
-        ]
+        # No Cloud Run revision exists in a dry run, so there are no logs. Never invent log lines:
+        # the investigation agent treats this bundle as evidence.
+        return [f"Revision logs not collected: dry run, no Cloud Run revision for {service_name} ({revision})."]
 
     cmd = [
         "gcloud", "logging", "read",

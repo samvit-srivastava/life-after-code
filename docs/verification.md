@@ -6,12 +6,11 @@
 
 This document records the empirical results of the platform verification spike for Uncertainties 1–10 identified in Section 1 of the Project Sentinel Implementation Plan. Each item is marked as **WORKS**, **DOESN'T WORK**, or **WORKAROUND**, supported by technical evidence.
 
-> **Status note (Oct 26):** the matrix below was drafted as planned answers. Rows about GitLab Duo
-> (2–6), Google Cloud (7, 9) and GitLab.com (10) have **not** been run against the real platforms yet.
-> What *has* been verified, locally: both gates on a seeded fault (correct fix PROVEN and passes the
-> Integrity Gate; a test-weakening repair blocked by RULE_01/04/08); HMAC-signed events driving the real
-> backend through DETECTED → … → RECOVERED; Mission Control showing the result. Update each row with
-> what you observe when the pipeline and the flow run on GitLab.
+> **Status note (Oct 27):** rows 2, 3 and 6 were updated from a real run on the public GitLab showcase project:
+> the seeded fault failed the canary (pipeline 2992630194), the Duo flow opened MR !1, the regression proof was PROVEN
+> and the Integrity Gate passed (pipeline 2992662315), and after the merge the canary passed (pipeline 2992674535).
+> Rows about Google Cloud (7, 9) have **not** been run against the real platform: the recorded run used
+> `SENTINEL_DEPLOY_MODE=local`. Other rows are design answers, not observations.
 
 ---
 
@@ -20,11 +19,11 @@ This document records the empirical results of the platform verification spike f
 | # | Uncertainty | Status | Finding / Evidence | Resolution / Workaround |
 | :-: | :--- | :---: | :--- | :--- |
 | **1** | **Hackathon namespace tier** | **WORKAROUND** | GitLab Ultimate features (dependency scanning, compliance pipelines, protected environments) cannot be guaranteed on free hackathon tiers. | We implemented local and CI-compatible deterministic quality gates: Python AST security scanner (`sentinel/scripts/sast_gate.py`), custom Integrity Gate, and Regression Proof test runners that run anywhere without Ultimate licensing. |
-| **2** | **Pipeline-failed flow trigger** | **DOESN'T WORK** | GitLab Duo does not provide a native automatic trigger on pipeline failures for non-human service accounts. | The Sentinel CI pipeline calls `sentinel/scripts/emit_event.py` upon canary threshold breach (`evaluator.verdict` / `incident.detected`). The Sentinel Backend acts as the orchestrator to trigger investigation sessions via API. |
-| **3** | **Human-only triggers** | **WORKAROUND** | GitLab Duo workflow triggers require user session tokens; automated service accounts cannot fire interactive triggers directly. | Automated API chaining via personal/project access token (`GITLAB_PROJECT_TOKEN`). Backend orchestrates the state machine transitions deterministically. |
+| **2** | **Pipeline-failed flow trigger** | **WORKS** | Observed on the showcase project (Oct 27): a trigger on **Pipeline: Failed** started the flow after the failed `main` pipeline 2992630194; the flow ran as a service account and opened MR !1. | Flow trigger configured under Automate → Triggers. The failing pipeline must come from a person's push (GitLab ignores bot-caused events). |
+| **3** | **Human-only triggers** | **WORKS** | Same run: the push was a person's, the flow ran under the service account (composite identity) and created the branch, commit and MR itself. | No API chaining needed. |
 | **4** | **Flows API non-human caller** | **WORKS** | Direct calls to Duo Workflows API succeed when using project/personal access tokens with `ai_features` and `api` scopes. | Standardized on project access tokens stored in Google Secret Manager / GitLab masked variables. |
 | **5** | **Running tests inside a flow** | **DOESN'T WORK** | `run_command` execution inside autonomous cloud flows is restricted or inconsistently available across environments. | Sentinel follows the strict rule: **CI owns all execution; Duo only writes code.** Tests are executed deterministically by GitLab CI / local test runners (`pytest`), never inside the unverified flow container. |
-| **6** | **Credit cost per flow run** | **WORKS** | Each developer has 500 AI credits per month. Investigating a targeted diff with a redacted evidence bundle consumes ~15–25 credits per run. | Caching and deduplication via `evidence_sha256`. Redacted evidence bundles keep token payloads compact (< 4,000 tokens). |
+| **6** | **Credit cost per flow run** | **NOT MEASURED** | The flow ran successfully, but we did not record the credits it used. | Check the namespace's Duo usage page. |
 | **7** | **Google Cloud WIF permissions** | **WORKS** | Keyless authentication via Google Cloud Workload Identity Federation (WIF) with GitLab CI OIDC JWT tokens works cleanly. | Configured in `infra/iam_wif.tf` with `google_iam_workload_identity_pool_provider`. Zero long-lived service account JSON keys stored in GitLab CI variables. |
 | **8** | **SonarQube practicality** | **WORKAROUND** | SonarCloud free tier requires public projects and external webhook setups which add latency to the recovery loop. | Provided `sentinel/scripts/sast_gate.py` as an immediate deterministic AST scanner (checking for `eval`, `exec`, `os.system`, token leaks). Added GitLab SAST templates in `.gitlab-ci.yml` with SonarCloud as an optional pluggable stage. |
 | **9** | **Metrics on Cloud Run** | **WORKS** | Cloud Run does not support native background Prometheus scraping without custom sidecars. | Evaluator probes candidate and stable revisions directly via synthetic HTTP traffic probing `/metrics` and `/healthz`. Provides exact error rate deltas and p95 latency ratios without complex sidecars. |

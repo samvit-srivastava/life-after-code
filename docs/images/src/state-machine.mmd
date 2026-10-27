@@ -1,0 +1,15 @@
+stateDiagram-v2
+  [*] --> DETECTED: evaluator.verdict FAIL<br/>(breached thresholds)
+  DETECTED --> ROLLED_BACK: rollback.completed<br/>post_rollback_probe_ok = true
+  DETECTED --> ROLLBACK_FAILED: probe not healthy
+  ROLLED_BACK --> EVIDENCE_COLLECTED: evidence.collected<br/>artifact_url + SHA-256
+  EVIDENCE_COLLECTED --> INVESTIGATING: flow.started / repair MR opened
+  INVESTIGATING --> REPAIR_PROPOSED: repair.proposed (MR iid + fix SHA)
+  INVESTIGATING --> INVESTIGATION_FAILED: no_fix_found
+  REPAIR_PROPOSED --> VERIFYING: gate verdicts PASS
+  REPAIR_PROPOSED --> VERIFICATION_FAILED: a gate FAILS
+  VERIFYING --> MERGED: merge.completed<br/>only if PROVEN and Integrity PASS
+  MERGED --> REDEPLOYING: deploy.canary_started for the fix SHA
+  REDEPLOYING --> RECOVERED: evaluator PASS, fix SHA, 100% traffic
+  REDEPLOYING --> REDEPLOY_UNHEALTHY: evaluator FAIL on the fix
+  RECOVERED --> [*]
