@@ -63,7 +63,7 @@ function NotFound() {
 }
 
 function Shell() {
-  const { snap, connected, source, startDemo } = useSentinel();
+  const { snap, connected, source, startDemo, exitDemo } = useSentinel();
   const loc = useLocation();
   const nav = useNavigate();
   const [now, setNow] = useState(Date.now());
@@ -95,7 +95,8 @@ function Shell() {
       <Intro />
       <div className="shell">
         <aside className="side">
-          <Link to="/" className="brand"><Logo /><div><b>Sentinel</b><span>Mission Control</span></div></Link>
+          <Link to="/" className="brand" onClick={() => { if (source === 'demo') exitDemo(); }}><Logo /><div><b>Sentinel</b><span>Mission Control</span></div></Link>
+
           <nav className="nav" aria-label="Pages">
             <span className="nav__k">Console</span>
             {PAGES.map((p, i) => (

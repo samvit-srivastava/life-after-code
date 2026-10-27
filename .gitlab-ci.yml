@@ -551,10 +551,8 @@ merge:auto-merge:
     - if: $CI_MERGE_REQUEST_IID && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^duo\/fix\// && $GITLAB_PROJECT_TOKEN
 
 # ==============================================================================
-# PUBLISH: Mission Control on GitLab Pages (public link, no backend)
+# PUBLISH: Mission Control on GitLab Pages
 # ==============================================================================
-# The public site runs in the labelled demo mode (scripted data, in the browser). There is no public
-# Sentinel backend: live data appears only when the dashboard runs next to a backend (see README).
 pages:
   stage: publish
   image: node:20-slim
@@ -562,17 +560,12 @@ pages:
   script:
     - cd frontend
     - npm ci --no-audit --no-fund
-    # With a public backend (SENTINEL_BACKEND_URL is https), the site shows live data from it.
-    # Without one, it opens the labelled demo scenario instead of an empty "no backend" console.
     - |
-      case "$SENTINEL_BACKEND_URL" in
-        https://*)
-          export VITE_API_BASE="$SENTINEL_BACKEND_URL" VITE_GITLAB_PROJECT_URL="$CI_PROJECT_URL"
-          npm run build -- --base ./ ;;
-        *)
-          npm run build -- --base ./
-          sed -i 's#<head>#<head><script>if(!location.search){location.replace("?demo"+location.hash)}</script>#' dist/index.html ;;
-      esac
+      if [ -n "$SENTINEL_BACKEND_URL" ] && [ "$SENTINEL_BACKEND_URL" != "http://sentinel-backend:8000" ]; then
+        export VITE_API_BASE="$SENTINEL_BACKEND_URL"
+      fi
+      export VITE_GITLAB_PROJECT_URL="${CI_PROJECT_URL:-https://gitlab.com/$CI_PROJECT_PATH}"
+      npm run build -- --base ./
     - cd .. && rm -rf public && cp -r frontend/dist public
   artifacts:
     paths:

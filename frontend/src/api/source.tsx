@@ -198,8 +198,13 @@ export function SentinelProvider({ children }: { children: ReactNode }) {
   }, []);
   const exitDemo = useCallback(() => {
     setSource('live');
-    const u = new URL(location.href); u.searchParams.delete('demo'); history.replaceState(null, '', u);
+    const u = new URL(location.href);
+    u.searchParams.delete('demo');
+    const search = u.searchParams.toString();
+    const cleanUrl = u.pathname + (search ? `?${search}` : '') + u.hash;
+    history.replaceState(null, '', cleanUrl);
   }, []);
+
   const watch = useCallback((id: string | null) => setWatched(id), []);
 
   const stale = source === 'live' && lastOkAt !== null && now - lastOkAt > 12_000;
